@@ -16,7 +16,11 @@
     </div>
 
     <Transition name="fade">
-      <div class="text-container" v-if="isBobberPastMiddle">
+      <div
+        class="text-container"
+        v-if="isBobberPastMiddle && isRocketLaunched == false"
+        id="text-container"
+      >
         <div class="text-section">
           <h2>Launch your cold plunge journey</h2>
           <p>
@@ -47,9 +51,15 @@
             reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
             pariatur. Excepteur sint occaecat cupidatat non proident.
           </p>
-          <button class="buy-now-button">Buy Now</button>
+          <button class="buy-now-button" @click="startRocketLaunch">
+            Launch your cold plunge journey
+          </button>
         </div>
       </div>
+    </Transition>
+
+    <Transition name="fade">
+      <JoinWaitlist v-if="showWaitlistForm" />
     </Transition>
   </div>
 </template>
@@ -67,10 +77,16 @@ import pyTexture from "./assets/hdri/sea_three/py.png";
 import nyTexture from "./assets/hdri/sea_three/ny.png";
 import pzTexture from "./assets/hdri/sea_three/pz.png";
 import nzTexture from "./assets/hdri/sea_three/nz.png";
+import JoinWaitlist from "./components/JoinWaitlist.vue";
 
 const sceneContainer = ref(null);
 const textElement = ref(null);
 const isBobberPastMiddle = ref(false);
+const isAnimating = ref(false);
+const isRocketLaunched = ref(false);
+const showWaitlistForm = ref(false);
+let seaMaterial = null;
+let bobber = null; // Declare bobber in a wider scope
 
 onMounted(() => {
   const container = sceneContainer.value;
@@ -95,12 +111,11 @@ onMounted(() => {
 
   // Load the bobber.glb model
   const loader = new GLTFLoader();
-  let bobber;
   let bobberMaterials;
   loader.load(
     bobberModel,
     (gltf) => {
-      bobber = gltf.scene;
+      bobber = gltf.scene; // Assign to the global bobber variable
       bobber.position.y = 4;
       bobber.rotation.y = 3.14;
       bobber.scale.set(0.6, 0.6, 0.6);
@@ -134,17 +149,18 @@ onMounted(() => {
       bobberMaterials = bobber.children[0].children[1].material;
 
       // Create sea material here, after environmentMap is loaded
-      const seaMaterial = new ShaderMaterial({
+      seaMaterial = new ShaderMaterial({
         uniforms: {
           time: { value: 0 },
           color1: { value: new THREE.Color(0x6799aa) },
           color2: { value: new THREE.Color(0x4a7a8c) },
           foamColor: { value: new THREE.Color(0xeeeeff) },
           envMap: { value: environmentMap },
-          // Remove the cameraPosition uniform, as it's already provided by Three.js
+          seaPosition: { value: new THREE.Vector3(0, 0, 0) },
         },
         vertexShader: `
           uniform float time;
+          uniform vec3 seaPosition;
           varying vec2 vUv;
           varying float vElevation;
           varying vec3 vWorldPosition;
@@ -182,7 +198,7 @@ onMounted(() => {
 
           void main() {
             vUv = uv;
-            vec3 pos = position;
+            vec3 pos = position + seaPosition;
 
             float noiseScale = 0.2;
             float noiseTime = time * 0.4;
@@ -288,7 +304,7 @@ onMounted(() => {
 
       // Function to check if bobber is in the middle of the canvas
       const isBobberPastMiddleOfCanvas = () => {
-        if (!bobber) return false;
+        if (!bobber || isAnimating.value) return false;
         // Get the bobber's position in screen coordinates
         const bobberScreenPosition = bobber.position.clone().project(camera);
 
@@ -302,12 +318,28 @@ onMounted(() => {
         return ndcY < -0.2;
       };
 
+      // Separate function for subtle rotation
+      const applySubtleRotation = () => {
+        if (!bobber) return;
+
+        bobber.rotation.x = Math.sin(seaMaterial.uniforms.time.value) * 0.051;
+        bobber.rotation.y =
+          Math.sin(seaMaterial.uniforms.time.value) * 0.044 + Math.PI;
+        bobber.rotation.z = Math.cos(seaMaterial.uniforms.time.value) * 0.046;
+
+        // Add subtle horizontal movement
+        bobber.position.x +=
+          Math.sin(seaMaterial.uniforms.time.value * 0.5) * 0.0009;
+        bobber.position.z +=
+          Math.cos(seaMaterial.uniforms.time.value * 0.48) * 0.001;
+      };
+
       // Physics variables
       const gravity = -9.8;
       let velocity = 0;
       const damping = 0.2; // Coefficient of restitution
 
-      // Add this function to calculate wave height
+      // Function to calculate wave height
       const getWaveHeight = (x, z, time) => {
         const amp = 0.05;
         const freq = 2.0;
@@ -316,7 +348,7 @@ onMounted(() => {
         );
       };
 
-      // Modify the applyGravity function
+      // Separate function for gravity and buoyancy
       const applyGravity = () => {
         if (!bobber) return;
 
@@ -346,55 +378,20 @@ onMounted(() => {
             velocity = 0;
           }
         }
-
-        // Add subtle horizontal movement
-        bobber.position.x +=
-          Math.sin(seaMaterial.uniforms.time.value * 0.5) * 0.001;
-        bobber.position.z +=
-          Math.cos(seaMaterial.uniforms.time.value * 0.5) * 0.001;
-
-        // Add subtle rotation
-        bobber.rotation.x = Math.sin(seaMaterial.uniforms.time.value) * 0.05;
-        bobber.rotation.z = Math.cos(seaMaterial.uniforms.time.value) * 0.05;
       };
 
-      // Function to update material color based on scroll
-      const updateMaterialColor = () => {
-        if (!bobberMaterials) return;
+      let animationId;
 
-        const scrollPosition = window.scrollY;
-        const maxScroll =
-          document.documentElement.scrollHeight - window.innerHeight;
-        const scrollPercentage = scrollPosition / maxScroll;
-
-        // Interpolate between two colors based on scroll percentage
-        const startColor = new THREE.Color(0xff0000); // Red
-        const endColor = new THREE.Color(0x0000ff); // Blue
-        const interpolatedColor = startColor.lerp(endColor, scrollPercentage);
-
-        // Update all materials of the bobber
-        if (Array.isArray(bobberMaterials)) {
-          bobberMaterials.forEach((material) => {
-            if (material.color) {
-              material.color.set(interpolatedColor);
-            }
-          });
-        } else if (bobberMaterials.color) {
-          bobberMaterials.color.set(interpolatedColor);
-        }
-      };
-
-      // Add scroll event listener
-      // window.addEventListener("scroll", updateMaterialColor);
-
-      // Animation loop
       const animate = () => {
         requestAnimationFrame(animate);
 
-        // Apply gravity and floating after 2 seconds
-        if (seaMaterial.uniforms.time.value > 1) {
-          applyGravity();
+        if (!isAnimating.value && isRocketLaunched.value == false) {
+          // Apply gravity and floating after 2 seconds
+          if (seaMaterial.uniforms.time.value > 1) {
+            applyGravity();
+          }
         }
+        applySubtleRotation();
 
         // Update water shader time
         seaMaterial.uniforms.time.value += 0.01;
@@ -402,37 +399,120 @@ onMounted(() => {
         isBobberPastMiddle.value = isBobberPastMiddleOfCanvas();
 
         if (textElement.value) {
-          textElement.value.style.opacity = isBobberPastMiddle.value ? 0 : 1;
+          textElement.value.style.opacity =
+            isBobberPastMiddle.value || isRocketLaunched.value == true ? 0 : 1;
         }
 
         // Render the scene from the perspective of the camera
         renderer.render(scene, camera);
       };
 
-      animate();
+      // Function to animate sea and bobber
+      const animateSeaDown = () => {
+        if (seaMaterial && seaMaterial.uniforms && bobber) {
+          const startSeaY = 0;
+          const endSeaY = -10;
+          const startBobberY = bobber.position.y;
+          const endBobberY = startBobberY + 1.8; // Adjust this value to control how high the bobber goes
+          const duration = 3000; // 5 seconds
+          const startTime = Date.now();
 
-      // Update canvas size on window resize
-      const onWindowResize = () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+          const animate = () => {
+            const elapsedTime = Date.now() - startTime;
+            const progress = Math.min(elapsedTime / duration, 1);
+
+            // Use easeOutCubic for smoother animation
+            const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+            const easedProgress = easeOutCubic(progress);
+
+            const newSeaY = startSeaY + (endSeaY - startSeaY) * easedProgress;
+            const newBobberY =
+              startBobberY + (endBobberY - startBobberY) * easedProgress;
+
+            // Update the sea position
+            seaMaterial.uniforms.seaPosition.value = new THREE.Vector3(
+              0,
+              newSeaY,
+              0
+            );
+
+            // Update the bobber position
+            bobber.position.y = newBobberY;
+
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            } else {
+              isAnimating.value = false;
+            }
+          };
+
+          animate();
+        }
       };
 
-      window.addEventListener("resize", onWindowResize);
+      // Expose animateSeaDown to the component's scope
+      window.animateSeaDown = animateSeaDown;
 
-      // Clean up when the component is unmounted
-      onUnmounted(() => {
-        window.removeEventListener("resize", onWindowResize);
-        window.removeEventListener("scroll", updateMaterialColor);
-        renderer.dispose();
-      });
+      animate();
     },
     undefined,
     (error) => {
       console.error("An error happened while loading the model:", error);
     }
   );
+
+  // Update canvas size on window resize
+  const onWindowResize = () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  };
+
+  window.addEventListener("resize", onWindowResize);
+
+  // Clean up when the component is unmounted
+  onUnmounted(() => {
+    window.removeEventListener("resize", onWindowResize);
+
+    renderer.dispose();
+  });
 });
+
+function startRocketLaunch() {
+  isRocketLaunched.value = true;
+
+  const canvasContainer = document.querySelector(".canvas-container");
+  if (canvasContainer) {
+    canvasContainer.style.transition = "background-color 5s ease";
+    canvasContainer.style.background = "#0D0D1F";
+  }
+
+  // Set text-container opacity to 0
+  const textContainer = document.querySelector(".text-container");
+  if (textContainer) {
+    textContainer.style.transition = "opacity 1s ease";
+    textContainer.style.opacity = "0";
+  }
+
+  // Fade out gradient overlays
+  const gradientOverlays = document.querySelectorAll(
+    ".gradient-overlay, .gradient-overlay-2"
+  );
+  gradientOverlays.forEach((overlay) => {
+    overlay.style.transition = "opacity 500ms ease";
+    overlay.style.opacity = "0";
+  });
+
+  // Call the animateSeaDown function
+  if (window.animateSeaDown) {
+    window.animateSeaDown();
+  }
+
+  // Set flag to show waitlist form
+  setTimeout(() => {
+    showWaitlistForm.value = true;
+  }, 2000); // Delay of 2 seconds before showing the form
+}
 </script>
 
 <style scoped>
@@ -443,6 +523,8 @@ onMounted(() => {
   width: 100vw;
   height: 100vh;
   z-index: 1;
+  pointer-events: none;
+  background: re;
 }
 
 .text-overlay {

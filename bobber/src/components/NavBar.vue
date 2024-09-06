@@ -40,7 +40,7 @@ const menuItems = ref([
   right: 0;
   z-index: 1000;
   color: #050505;
-  background: linear-gradient(to bottom, #f5f4ee 50%, #f5f4ee00);
+  /* background: linear-gradient(to bottom, #f5f4ee 50%, #f5f4ee00); */
 }
 
 .navbar-brand {
