@@ -62,7 +62,7 @@
 import { onMounted, ref, onUnmounted, watch } from "vue";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import bobberModel from "./assets/Models/bobber.glb";
+import bobberModel from "./assets/Models/bobber-real.glb";
 import NavBar from "./components/NavBar.vue";
 import {
   ShaderMaterial,
@@ -120,8 +120,7 @@ onMounted(() => {
     (gltf) => {
       bobber = gltf.scene; // Assign to the global bobber variable
       bobber.position.y = 4;
-      bobber.rotation.y = 3.14;
-      bobber.scale.set(0.6, 0.6, 0.6);
+      bobber.scale.set(20, 20, 20);
 
       // Load environment map
       const cubeTextureLoader = new CubeTextureLoader();
@@ -149,7 +148,7 @@ onMounted(() => {
 
       scene.add(bobber);
 
-      bobberMaterials = bobber.children[0].children[1].material;
+      // bobberMaterials = bobber.children[0].children[1].material;
 
       // Create sea material here, after environmentMap is loaded
       seaMaterial = new ShaderMaterial({
@@ -394,8 +393,7 @@ onMounted(() => {
         if (!bobber) return;
 
         bobber.rotation.x = Math.sin(seaMaterial.uniforms.time.value) * 0.051;
-        bobber.rotation.y =
-          Math.sin(seaMaterial.uniforms.time.value) * 0.044 + Math.PI;
+        bobber.rotation.y = Math.sin(seaMaterial.uniforms.time.value) * 0.044;
         bobber.rotation.z = Math.cos(seaMaterial.uniforms.time.value) * 0.046;
 
         // Add subtle horizontal movement
@@ -436,8 +434,8 @@ onMounted(() => {
         const seaLevel = sea.position.y + waveHeight;
 
         // Check for collision with sea
-        if (bobber.position.y < seaLevel - 0.35) {
-          bobber.position.y = seaLevel - 0.35;
+        if (bobber.position.y < seaLevel - 0.28) {
+          bobber.position.y = seaLevel - 0.28;
           velocity = -velocity * damping;
 
           // Apply buoyancy force
@@ -489,7 +487,7 @@ onMounted(() => {
           const startSeaY = 0;
           const endSeaY = -10;
           const startBobberY = bobber.position.y;
-          const endBobberY = startBobberY + 1.8; // Adjust this value to control how high the bobber goes
+          const endBobberY = startBobberY + 1.65; // Adjust this value to control how high the bobber goes
           const duration = 3000; // 5 seconds
           const startTime = Date.now();
 
