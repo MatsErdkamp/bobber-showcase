@@ -29,6 +29,12 @@
             aliquam nunc nunc vitae. Duis aute irure dolor in reprehenderit in
             voluptate velit esse cillum dolore eu fugiat nulla pariatur.
           </p>
+          <img
+            src="./assets/cee_logo_star.svg"
+            alt="CEE.HEALTH"
+            class="logo-star"
+            width="200"
+          />
         </div>
 
         <div class="text-section">
@@ -602,6 +608,11 @@ function startRocketLaunch() {
 </script>
 
 <style scoped>
+.logo-star {
+  margin-left: 60px !important;
+  margin-bottom: -155px;
+}
+
 .canvas-container {
   position: fixed;
   top: 0;
