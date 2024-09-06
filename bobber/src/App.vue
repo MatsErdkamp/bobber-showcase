@@ -667,7 +667,7 @@ function startRocketLaunch() {
 .text-container {
   color: #050505;
   overflow-y: auto;
-  margin-top: 25vh;
+  margin-top: 20vh;
   margin-bottom: 20vh;
   width: 100vw;
   min-height: 100vh;
@@ -675,11 +675,24 @@ function startRocketLaunch() {
   z-index: 0;
 }
 
+.text-container::before {
+  content: "";
+  height: 100%;
+  width: 100px;
+  border-left: 1px solid #ceccc5;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: -1;
+}
+
 .text-section {
   margin-bottom: 40vh;
   width: min(400px, 50vw);
   margin-left: auto;
   margin-right: auto;
+  background: #f5f4ee;
+  padding: 24px 0;
 }
 
 .text-section img {
@@ -707,18 +720,23 @@ function startRocketLaunch() {
   border: none;
   padding: 12px 16px;
   width: min(300px, 50vw);
-  border-radius: 32px;
+  border-radius: 36px;
   cursor: pointer;
   margin-top: 24px;
   display: block;
   margin-left: auto;
   margin-right: auto;
   text-wrap: pretty;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 6px rgba(0, 0, 0, 0.08),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(0, 0, 0, 0.1);
+  position: relative;
+  top: 0;
+  font-weight: 600;
 }
 
 .buy-now-button:hover {
-  background-color: #0056b3;
+  background-color: #176bc5;
 }
 
 .fade-enter-active,

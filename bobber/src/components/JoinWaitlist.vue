@@ -47,18 +47,32 @@ form {
 }
 
 input {
-  padding: 12px;
-  border-radius: 16px;
+  padding: 16px;
+  border-radius: 32px;
   border: 1px solid #212121;
 }
 
 button {
-  padding: 12px 20px;
-  background-color: #ff6600;
-  color: white;
-  min-width: 100%;
-  border-radius: 16px;
+  background-color: #ff9000;
+  color: #fff;
   border: none;
+  padding: 12px 16px;
+  min-width: 100%;
+  border-radius: 36px;
   cursor: pointer;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  text-wrap: pretty;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 6px rgba(0, 0, 0, 0.08),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(0, 0, 0, 0.1);
+  position: relative;
+  top: 0;
+  font-weight: 600;
+}
+
+button:hover {
+  background-color: #ce7e16;
 }
 </style>
