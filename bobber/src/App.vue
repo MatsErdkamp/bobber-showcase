@@ -1,0 +1,544 @@
+<template>
+  <div class="page-container">
+    <Transition name="fade">
+      <NavBar v-if="isBobberPastMiddle" />
+    </Transition>
+    <div ref="sceneContainer" class="canvas-container">
+      <img
+        ref="textElement"
+        src="./assets/cee_logo.svg"
+        alt="CEE.HEALTH"
+        class="text-overlay"
+        width="200"
+      />
+      <div class="gradient-overlay"></div>
+      <div class="gradient-overlay-2"></div>
+    </div>
+
+    <Transition name="fade">
+      <div class="text-container" v-if="isBobberPastMiddle">
+        <div class="text-section">
+          <h2>Launch your cold plunge journey</h2>
+          <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
+            auctor, nunc id aliquam tincidunt, nisi nunc tincidunt nunc, vitae
+            aliquam nunc nunc vitae nunc.
+          </p>
+        </div>
+
+        <div class="text-section">
+          <h2>Consectetur Adipiscing</h2>
+          <p>
+            Consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
+            labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+            exercitation ullamco laboris nisi ut aliquip ex ea commodo
+            consequat. Duis aute irure dolor in reprehenderit in voluptate velit
+            esse cillum dolore eu fugiat nulla pariatur.
+          </p>
+        </div>
+
+        <div class="text-section">
+          <h2>Sed Do Eiusmod Tempor</h2>
+          <p>
+            Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+            Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris
+            nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in
+            reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+            pariatur. Excepteur sint occaecat cupidatat non proident.
+          </p>
+          <button class="buy-now-button">Buy Now</button>
+        </div>
+      </div>
+    </Transition>
+  </div>
+</template>
+
+<script setup>
+import { onMounted, ref, onUnmounted, watch } from "vue";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import bobberModel from "./assets/Models/bobber.glb";
+import NavBar from "./components/NavBar.vue";
+import { ShaderMaterial, CubeTextureLoader } from "three";
+import pxTexture from "./assets/hdri/sea_three/px.png";
+import nxTexture from "./assets/hdri/sea_three/nx.png";
+import pyTexture from "./assets/hdri/sea_three/py.png";
+import nyTexture from "./assets/hdri/sea_three/ny.png";
+import pzTexture from "./assets/hdri/sea_three/pz.png";
+import nzTexture from "./assets/hdri/sea_three/nz.png";
+
+const sceneContainer = ref(null);
+const textElement = ref(null);
+const isBobberPastMiddle = ref(false);
+
+onMounted(() => {
+  const container = sceneContainer.value;
+
+  // Create a new scene
+  const scene = new THREE.Scene();
+
+  // Create a perspective camera
+  const camera = new THREE.PerspectiveCamera(
+    20, // Field of view
+    window.innerWidth / window.innerHeight, // Aspect ratio
+    0.1, // Near plane
+    1000 // Far plane
+  );
+  camera.position.z = 10;
+
+  // Create a WebGL renderer with alpha enabled (for transparency)
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 0); // Set clear color to black but fully transparent
+  container.appendChild(renderer.domElement); // Append canvas to the container
+
+  // Load the bobber.glb model
+  const loader = new GLTFLoader();
+  let bobber;
+  let bobberMaterials;
+  loader.load(
+    bobberModel,
+    (gltf) => {
+      bobber = gltf.scene;
+      bobber.position.y = 4;
+      bobber.rotation.y = 3.14;
+      bobber.scale.set(0.6, 0.6, 0.6);
+
+      // Load environment map
+      const cubeTextureLoader = new CubeTextureLoader();
+      const environmentMap = cubeTextureLoader.load([
+        nxTexture,
+        pxTexture,
+        nyTexture,
+        pyTexture,
+        nzTexture,
+        pzTexture,
+      ]);
+
+      // Set the environment map to the scene
+      scene.environment = environmentMap;
+      // scene.background = environmentMap; // Optional: if you want the environment map as background
+
+      // Apply environment map to bobber materials
+      bobber.traverse((child) => {
+        if (child.isMesh) {
+          child.material.envMap = environmentMap;
+          child.material.envMapIntensity = 1.6; // Adjust as needed
+          child.material.needsUpdate = true;
+        }
+      });
+
+      scene.add(bobber);
+
+      bobberMaterials = bobber.children[0].children[1].material;
+
+      // Create sea material here, after environmentMap is loaded
+      const seaMaterial = new ShaderMaterial({
+        uniforms: {
+          time: { value: 0 },
+          color1: { value: new THREE.Color(0x6799aa) },
+          color2: { value: new THREE.Color(0x4a7a8c) },
+          foamColor: { value: new THREE.Color(0xeeeeff) },
+          envMap: { value: environmentMap },
+          // Remove the cameraPosition uniform, as it's already provided by Three.js
+        },
+        vertexShader: `
+          uniform float time;
+          varying vec2 vUv;
+          varying float vElevation;
+          varying vec3 vWorldPosition;
+          varying vec3 vNormal;
+
+          // Simplex 2D noise
+          vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+
+          float snoise(vec2 v) {
+            const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                     -0.577350269189626, 0.024390243902439);
+            vec2 i  = floor(v + dot(v, C.yy) );
+            vec2 x0 = v -   i + dot(i, C.xx);
+            vec2 i1;
+            i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+            vec4 x12 = x0.xyxy + C.xxzz;
+            x12.xy -= i1;
+            i = mod(i, 289.0);
+            vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+            + i.x + vec3(0.0, i1.x, 1.0 ));
+            vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
+              dot(x12.zw,x12.zw)), 0.0);
+            m = m*m ;
+            m = m*m ;
+            vec3 x = 2.0 * fract(p * C.www) - 1.0;
+            vec3 h = abs(x) - 0.5;
+            vec3 ox = floor(x + 0.5);
+            vec3 a0 = x - ox;
+            m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+            vec3 g;
+            g.x  = a0.x  * x0.x  + h.x  * x0.y;
+            g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+            return 40.0 * dot(m, g);
+          }
+
+          void main() {
+            vUv = uv;
+            vec3 pos = position;
+
+            float noiseScale = 0.2;
+            float noiseTime = time * 0.4;
+
+            float noise1 = snoise(vec2(vUv.x * 2.0 + noiseTime, vUv.y * 2.0 + noiseTime)) * noiseScale;
+            float noise2 = snoise(vec2(vUv.x * 4.0 - noiseTime, vUv.y * 4.0 - noiseTime)) * noiseScale * 0.5;
+            float noise3 = snoise(vec2(vUv.x * 8.0 + noiseTime * 1.5, vUv.y * 8.0 - noiseTime * 1.5)) * noiseScale * 0.25;
+            float noise4 = snoise(vec2(vUv.x * 16.0 + noiseTime * 2.0, vUv.y * 16.0 - noiseTime * 2.0)) * noiseScale * 0.1;
+
+            vElevation = noise1 + noise2 + noise3 + noise4;
+            pos.z += vElevation;
+
+            vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
+            vWorldPosition = worldPosition.xyz;
+            vNormal = normalize(mat3(modelMatrix) * normal);
+
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 color1;
+          uniform vec3 color2;
+          uniform vec3 foamColor;
+          uniform float time;
+          uniform samplerCube envMap;
+          // cameraPosition is already provided by Three.js, so we don't need to declare it
+          varying vec2 vUv;
+          varying float vElevation;
+          varying vec3 vWorldPosition;
+          varying vec3 vNormal;
+
+          // Simplex 2D noise function (same as in vertex shader)
+          vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+
+          float snoise(vec2 v) {
+            const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                     -0.577350269189626, 0.024390243902439);
+            vec2 i  = floor(v + dot(v, C.yy) );
+            vec2 x0 = v -   i + dot(i, C.xx);
+            vec2 i1;
+            i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+            vec4 x12 = x0.xyxy + C.xxzz;
+            x12.xy -= i1;
+            i = mod(i, 289.0);
+            vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+            + i.x + vec3(0.0, i1.x, 1.0 ));
+            vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
+              dot(x12.zw,x12.zw)), 0.0);
+            m = m*m ;
+            m = m*m ;
+            vec3 x = 2.0 * fract(p * C.www) - 1.0;
+            vec3 h = abs(x) - 0.5;
+            vec3 ox = floor(x + 0.5);
+            vec3 a0 = x - ox;
+            m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+            vec3 g;
+            g.x  = a0.x  * x0.x  + h.x  * x0.y;
+            g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+            return 40.0 * dot(m, g);
+          }
+
+          void main() {
+            float mixStrength = (sin(vUv.x * 10.0 + time) + sin(vUv.y * 10.0 + time)) * 0.5 + 0.5;
+            vec3 mixedColor = mix(color1, color2, mixStrength);
+
+            float foamEdge = smoothstep(0.04, 0.1, vElevation);
+            vec3 finalColor = mix(mixedColor, foamColor, foamEdge);
+
+            // Calculate reflection with displacement
+            vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
+            vec3 reflectionDirection = reflect(-viewDirection, vNormal);
+
+            // Add displacement to reflection direction
+            float displacementScale = 0.1;
+            float displacementX = snoise(vUv * 10.0 + time * 0.5) * displacementScale;
+            float displacementY = snoise((vUv + 0.5) * 10.0 + time * 0.5) * displacementScale;
+            reflectionDirection.x += displacementX;
+            reflectionDirection.y += displacementY;
+            reflectionDirection = normalize(reflectionDirection);
+
+            vec3 reflection = textureCube(envMap, reflectionDirection).rgb;
+
+            // Mix reflection with water color
+            float reflectionStrength = 0.4; // Adjust this value to control reflection intensity
+            finalColor = mix(finalColor, reflection, reflectionStrength);
+
+            float alpha = 0.8 + foamEdge * 0.2;
+            gl_FragColor = vec4(finalColor, alpha);
+          }
+        `,
+        transparent: true,
+      });
+      const seaGeometry = new THREE.PlaneGeometry(10, 10, 100, 100);
+      const sea = new THREE.Mesh(seaGeometry, seaMaterial);
+      sea.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+      sea.position.y = -1.5; // Position slightly above the ground
+      scene.add(sea);
+
+      // Add a directional light
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1); // White light, intensity 1
+      directionalLight.position.set(0, 5, 5); // Position the light above and to the right
+      scene.add(directionalLight);
+
+      // Function to check if bobber is in the middle of the canvas
+      const isBobberPastMiddleOfCanvas = () => {
+        if (!bobber) return false;
+        // Get the bobber's position in screen coordinates
+        const bobberScreenPosition = bobber.position.clone().project(camera);
+
+        // Convert to normalized device coordinates (NDC)
+        const ndcX = bobberScreenPosition.x;
+        const ndcY = bobberScreenPosition.y;
+
+        // Check if the bobber is past the middle of the screen
+        // NDC coordinates range from -1 to 1, where 0 is the center
+        // We check if the bobber's y position is less than 0 (below the center)
+        return ndcY < -0.2;
+      };
+
+      // Physics variables
+      const gravity = -9.8;
+      let velocity = 0;
+      const damping = 0.2; // Coefficient of restitution
+
+      // Add this function to calculate wave height
+      const getWaveHeight = (x, z, time) => {
+        const amp = 0.05;
+        const freq = 2.0;
+        return (
+          amp * Math.sin(x * freq + time) + amp * Math.sin(z * freq + time)
+        );
+      };
+
+      // Modify the applyGravity function
+      const applyGravity = () => {
+        if (!bobber) return;
+
+        // Apply gravity
+        velocity += gravity * 0.016;
+        bobber.position.y += velocity * 0.016;
+
+        // Calculate wave height at bobber's position
+        const waveHeight = getWaveHeight(
+          bobber.position.x,
+          bobber.position.z,
+          seaMaterial.uniforms.time.value
+        );
+        const seaLevel = sea.position.y + waveHeight;
+
+        // Check for collision with sea
+        if (bobber.position.y < seaLevel - 0.35) {
+          bobber.position.y = seaLevel - 0.35;
+          velocity = -velocity * damping;
+
+          // Apply buoyancy force
+          const buoyancyForce = 9.8 * 0.02; // Adjust this value to change floating behavior
+          velocity += buoyancyForce;
+
+          // Stop bouncing when velocity becomes very small
+          if (Math.abs(velocity) < 0.01) {
+            velocity = 0;
+          }
+        }
+
+        // Add subtle horizontal movement
+        bobber.position.x +=
+          Math.sin(seaMaterial.uniforms.time.value * 0.5) * 0.001;
+        bobber.position.z +=
+          Math.cos(seaMaterial.uniforms.time.value * 0.5) * 0.001;
+
+        // Add subtle rotation
+        bobber.rotation.x = Math.sin(seaMaterial.uniforms.time.value) * 0.05;
+        bobber.rotation.z = Math.cos(seaMaterial.uniforms.time.value) * 0.05;
+      };
+
+      // Function to update material color based on scroll
+      const updateMaterialColor = () => {
+        if (!bobberMaterials) return;
+
+        const scrollPosition = window.scrollY;
+        const maxScroll =
+          document.documentElement.scrollHeight - window.innerHeight;
+        const scrollPercentage = scrollPosition / maxScroll;
+
+        // Interpolate between two colors based on scroll percentage
+        const startColor = new THREE.Color(0xff0000); // Red
+        const endColor = new THREE.Color(0x0000ff); // Blue
+        const interpolatedColor = startColor.lerp(endColor, scrollPercentage);
+
+        // Update all materials of the bobber
+        if (Array.isArray(bobberMaterials)) {
+          bobberMaterials.forEach((material) => {
+            if (material.color) {
+              material.color.set(interpolatedColor);
+            }
+          });
+        } else if (bobberMaterials.color) {
+          bobberMaterials.color.set(interpolatedColor);
+        }
+      };
+
+      // Add scroll event listener
+      // window.addEventListener("scroll", updateMaterialColor);
+
+      // Animation loop
+      const animate = () => {
+        requestAnimationFrame(animate);
+
+        // Apply gravity and floating after 2 seconds
+        if (seaMaterial.uniforms.time.value > 1) {
+          applyGravity();
+        }
+
+        // Update water shader time
+        seaMaterial.uniforms.time.value += 0.01;
+
+        isBobberPastMiddle.value = isBobberPastMiddleOfCanvas();
+
+        if (textElement.value) {
+          textElement.value.style.opacity = isBobberPastMiddle.value ? 0 : 1;
+        }
+
+        // Render the scene from the perspective of the camera
+        renderer.render(scene, camera);
+      };
+
+      animate();
+
+      // Update canvas size on window resize
+      const onWindowResize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      };
+
+      window.addEventListener("resize", onWindowResize);
+
+      // Clean up when the component is unmounted
+      onUnmounted(() => {
+        window.removeEventListener("resize", onWindowResize);
+        window.removeEventListener("scroll", updateMaterialColor);
+        renderer.dispose();
+      });
+    },
+    undefined,
+    (error) => {
+      console.error("An error happened while loading the model:", error);
+    }
+  );
+});
+</script>
+
+<style scoped>
+.canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+}
+
+.text-overlay {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 32px;
+  font-weight: bold;
+  color: black;
+  z-index: -2;
+  opacity: 0;
+  animation: fadeIn 500ms ease-out;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.gradient-overlay {
+  position: fixed;
+  bottom: 0px;
+  left: 0;
+  width: 100%;
+  height: 300px;
+  background: linear-gradient(to top, #f5f4ee 50%, #f5f4ee00);
+  z-index: -4;
+  pointer-events: none;
+}
+
+.gradient-overlay-2 {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(
+    to top,
+    hsl(193, 58%, 9%) 40%,
+    rgba(246, 220, 189, 0)
+  );
+  z-index: -3;
+  pointer-events: none;
+}
+
+.text-container {
+  color: #050505;
+  overflow-y: auto;
+  margin-top: 25vh;
+  margin-bottom: 20vh;
+  width: 50vw;
+  min-height: 100vh;
+  position: relative;
+  z-index: 0;
+  margin-left: 25vw;
+}
+
+.text-section {
+  margin-bottom: 40vh;
+}
+
+.text-section h2 {
+  text-wrap: pretty;
+  line-height: 1.3;
+  font-size: 1.8em;
+}
+
+.text-section p {
+  line-height: 1.3;
+}
+
+.buy-now-button {
+  background-color: #007aff;
+  color: #fff;
+  border: none;
+  padding: 16px 32px;
+  width: 100%;
+  border-radius: 32px;
+  cursor: pointer;
+  margin-top: 24px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
