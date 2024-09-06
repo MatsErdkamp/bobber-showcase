@@ -32,27 +32,21 @@
         </div>
 
         <div class="text-section">
-          <h2>Consectetur Adipiscing</h2>
-          <p>
-            Consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
-            labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
-            exercitation ullamco laboris nisi ut aliquip ex ea commodo
-            consequat. Duis aute irure dolor in reprehenderit in voluptate velit
-            esse cillum dolore eu fugiat nulla pariatur.
-          </p>
+          <h2>More explanation</h2>
+          <img src="./assets/cee-sea.png" alt="cee-sea" />
+          <!-- <img src="./assets/timer-functions.png" alt="timer-functions" /> -->
         </div>
 
         <div class="text-section">
-          <h2>Sed Do Eiusmod Tempor</h2>
+          <h2>What are you waiting for?</h2>
+
           <p>
-            Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-            Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris
-            nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in
-            reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
-            pariatur. Excepteur sint occaecat cupidatat non proident.
+            Cillum mollit veniam est exercitation dolore amet irure laboris
+            irure esse anim esse ad. Enim ex id id eu. Sunt dolor sit deserunt
+            consequat laborum consequat.
           </p>
           <button class="buy-now-button" @click="startRocketLaunch">
-            Launch your cold plunge journey
+            Embark on your cold plunge journey
           </button>
         </div>
       </div>
@@ -70,7 +64,13 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import bobberModel from "./assets/Models/bobber.glb";
 import NavBar from "./components/NavBar.vue";
-import { ShaderMaterial, CubeTextureLoader } from "three";
+import {
+  ShaderMaterial,
+  CubeTextureLoader,
+  BackSide,
+  SphereGeometry,
+  Mesh,
+} from "three";
 import pxTexture from "./assets/hdri/sea_three/px.png";
 import nxTexture from "./assets/hdri/sea_three/nx.png";
 import pyTexture from "./assets/hdri/sea_three/py.png";
@@ -87,12 +87,15 @@ const isRocketLaunched = ref(false);
 const showWaitlistForm = ref(false);
 let seaMaterial = null;
 let bobber = null; // Declare bobber in a wider scope
+let scene;
+let starField;
+let starMaterial;
 
 onMounted(() => {
   const container = sceneContainer.value;
 
   // Create a new scene
-  const scene = new THREE.Scene();
+  scene = new THREE.Scene();
 
   // Create a perspective camera
   const camera = new THREE.PerspectiveCamera(
@@ -139,7 +142,7 @@ onMounted(() => {
       bobber.traverse((child) => {
         if (child.isMesh) {
           child.material.envMap = environmentMap;
-          child.material.envMapIntensity = 1.6; // Adjust as needed
+          child.material.envMapIntensity = 1.5; // Adjust as needed
           child.material.needsUpdate = true;
         }
       });
@@ -302,6 +305,74 @@ onMounted(() => {
       directionalLight.position.set(0, 5, 5); // Position the light above and to the right
       scene.add(directionalLight);
 
+      // Create star shader material
+      starMaterial = new ShaderMaterial({
+        uniforms: {
+          time: { value: 0 },
+          resolution: {
+            value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+          },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          uniform vec2 resolution;
+          varying vec2 vUv;
+
+          float hash(vec2 p) {
+            p = fract(p * vec2(123.34, 456.21));
+            p += dot(p, p + 45.32);
+            return fract(p.x * p.y);
+          }
+
+          void main() {
+            vec2 uv = vUv;
+            vec4 color = vec4(0.0, 0.0, 0.0, 0.0); // Initialize with transparent black
+            
+            float gridSize = 4.0;
+            vec2 gridUv = fract(uv * resolution / gridSize) - 0.5;
+            vec2 id = floor(uv * resolution / gridSize);
+            
+            vec2 offset = vec2(
+              hash(id + 0.1) - 0.5,
+              hash(id + 0.2) - 0.5
+            ) * 0.7;
+            
+            gridUv += offset;
+            
+            float size = hash(id) * 0.001 + 0.02;
+            float brightness = pow(hash(id + 0.3), 5.0) * 0.8 + 0.4;
+            
+            float star = length(gridUv) - size;
+            star = 1.0 - step(0.0, star);
+            
+            float twinkle = sin(time * (hash(id + 0.4) * 2.0 + 1.0) + hash(id + 0.5) * 6.28) * 0.5 + 0.5;
+            brightness *= mix(0.5, 1.0, twinkle);
+            
+            // Set star color with alpha
+            color.rgb = vec3(1.0, 0.9, 0.8) * star * brightness;
+            color.a = star * brightness; // Set alpha based on star intensity
+
+            gl_FragColor = color;
+          }
+        `,
+        side: BackSide,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+
+      // Create a large sphere for the star field
+      const starGeometry = new SphereGeometry(500, 64, 64);
+      starField = new Mesh(starGeometry, starMaterial);
+      // Don't add to scene yet, we'll do that when the rocket launches
+
       // Function to check if bobber is in the middle of the canvas
       const isBobberPastMiddleOfCanvas = () => {
         if (!bobber || isAnimating.value) return false;
@@ -396,6 +467,11 @@ onMounted(() => {
         // Update water shader time
         seaMaterial.uniforms.time.value += 0.01;
 
+        // Update star shader time
+        if (starMaterial) {
+          starMaterial.uniforms.time.value += 0.016; // Assuming 60 FPS
+        }
+
         isBobberPastMiddle.value = isBobberPastMiddleOfCanvas();
 
         if (textElement.value) {
@@ -475,6 +551,13 @@ onMounted(() => {
     window.removeEventListener("resize", onWindowResize);
 
     renderer.dispose();
+
+    if (starMaterial) {
+      starMaterial.dispose();
+    }
+    if (starField) {
+      starField.geometry.dispose();
+    }
   });
 });
 
@@ -484,7 +567,7 @@ function startRocketLaunch() {
   const canvasContainer = document.querySelector(".canvas-container");
   if (canvasContainer) {
     canvasContainer.style.transition = "background-color 5s ease";
-    canvasContainer.style.background = "#0D0D1F";
+    canvasContainer.style.background = "#030308";
   }
 
   // Set text-container opacity to 0
@@ -506,6 +589,11 @@ function startRocketLaunch() {
   // Call the animateSeaDown function
   if (window.animateSeaDown) {
     window.animateSeaDown();
+  }
+
+  // Add star field to the scene
+  if (starField && scene) {
+    scene.add(starField);
   }
 
   // Set flag to show waitlist form
@@ -583,15 +671,26 @@ function startRocketLaunch() {
   overflow-y: auto;
   margin-top: 25vh;
   margin-bottom: 20vh;
-  width: 50vw;
+  width: 100vw;
   min-height: 100vh;
   position: relative;
   z-index: 0;
-  margin-left: 25vw;
 }
 
 .text-section {
   margin-bottom: 40vh;
+  width: min(400px, 50vw);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.text-section img {
+  width: 100%;
+  height: auto;
+  max-width: min(300px, 50vw);
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .text-section h2 {
@@ -608,11 +707,20 @@ function startRocketLaunch() {
   background-color: #007aff;
   color: #fff;
   border: none;
-  padding: 16px 32px;
-  width: 100%;
+  padding: 12px 16px;
+  width: min(300px, 50vw);
   border-radius: 32px;
   cursor: pointer;
   margin-top: 24px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  text-wrap: pretty;
+  transition: background-color 0.3s ease;
+}
+
+.buy-now-button:hover {
+  background-color: #0056b3;
 }
 
 .fade-enter-active,

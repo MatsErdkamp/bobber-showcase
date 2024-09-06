@@ -31,10 +31,10 @@ function submitForm() {
   text-align: center;
   position: fixed;
   bottom: 0;
-  left: 25vw;
+  left: 50%;
+  transform: translateX(-50%);
   height: 40vh;
-  width: 50vw;
-
+  width: min(400px, 50vw);
   z-index: 100;
 }
 
@@ -49,7 +49,7 @@ form {
 input {
   padding: 12px;
   border-radius: 16px;
-  border: 1px solid white;
+  border: 1px solid #212121;
 }
 
 button {
