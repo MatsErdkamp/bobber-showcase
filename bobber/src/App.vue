@@ -275,7 +275,7 @@ onMounted(() => {
         `,
         transparent: true,
       });
-      const seaGeometry = new THREE.PlaneGeometry(10, 10, 100, 100);
+      const seaGeometry = new THREE.PlaneGeometry(10, 10, 400, 400);
       const sea = new THREE.Mesh(seaGeometry, seaMaterial);
       sea.rotation.x = -Math.PI / 2; // Rotate to be horizontal
       sea.position.y = -1.5; // Position slightly above the ground

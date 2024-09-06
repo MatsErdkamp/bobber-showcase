@@ -5,14 +5,4 @@ import vue from "@vitejs/plugin-vue";
 export default defineConfig({
   plugins: [vue()],
   assetsInclude: ["**/*.glb"],
-  resolve: {
-    alias: {
-      vue: "vue/dist/vue.esm-bundler.js",
-    },
-  },
-  build: {
-    rollupOptions: {
-      external: ["vue"],
-    },
-  },
 });
