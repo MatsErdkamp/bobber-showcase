@@ -667,8 +667,8 @@ function startRocketLaunch() {
 .text-container {
   color: #050505;
   overflow-y: auto;
-  margin-top: 20vh;
-  margin-bottom: 20vh;
+  margin-top: 12vh;
+  margin-bottom: 10vh;
   width: 100vw;
   min-height: 100vh;
   position: relative;
