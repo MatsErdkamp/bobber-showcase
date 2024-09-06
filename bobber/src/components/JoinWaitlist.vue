@@ -49,7 +49,7 @@ form {
 input {
   padding: 12px;
   border-radius: 16px;
-  border: 1px solid #ff6600;
+  border: 1px solid white;
 }
 
 button {
