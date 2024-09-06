@@ -345,7 +345,7 @@ onMounted(() => {
             
             gridUv += offset;
             
-            float size = hash(id) * 0.001 + 0.02;
+            float size = hash(id) * 0.002 + 0.03;
             float brightness = pow(hash(id + 0.3), 5.0) * 0.8 + 0.4;
             
             float star = length(gridUv) - size;
