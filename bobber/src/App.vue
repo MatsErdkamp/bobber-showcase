@@ -22,7 +22,8 @@
           <p>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam
             auctor, nunc id aliquam tincidunt, nisi nunc tincidunt nunc, vitae
-            aliquam nunc nunc vitae nunc.
+            aliquam nunc nunc vitae. Duis aute irure dolor in reprehenderit in
+            voluptate velit esse cillum dolore eu fugiat nulla pariatur.
           </p>
         </div>
 
