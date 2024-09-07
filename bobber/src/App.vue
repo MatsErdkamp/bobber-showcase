@@ -96,6 +96,12 @@ let bobber = null; // Declare bobber in a wider scope
 let scene;
 let starField;
 let starMaterial;
+const isDragging = ref(false);
+const dragStartPosition = ref(new THREE.Vector2());
+const bobberStartPosition = ref(new THREE.Vector3());
+let renderer; // Add this line to store the renderer reference
+let camera; // Add this line to store the camera reference
+let dragPlane;
 
 onMounted(() => {
   const container = sceneContainer.value;
@@ -103,22 +109,22 @@ onMounted(() => {
   // Create a new scene
   scene = new THREE.Scene();
 
+  // Create a WebGL renderer with alpha enabled (for transparency)
+  renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000, 0); // Set clear color to black but fully transparent
+  container.appendChild(renderer.domElement); // Append canvas to the container
+  renderer.domElement.style.position = "fixed";
+  renderer.domElement.style.bottom = "0";
+
   // Create a perspective camera
-  const camera = new THREE.PerspectiveCamera(
+  camera = new THREE.PerspectiveCamera(
     20, // Field of view
     window.innerWidth / window.innerHeight, // Aspect ratio
     0.1, // Near plane
     1000 // Far plane
   );
   camera.position.z = 10;
-
-  // Create a WebGL renderer with alpha enabled (for transparency)
-  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(0x000000, 0); // Set clear color to black but fully transparent
-  container.appendChild(renderer.domElement); // Append canvas to the container
-  renderer.domElement.style.position = "fixed";
-  renderer.domElement.style.bottom = "0";
 
   // Load the bobber.glb model
   const loader = new GLTFLoader();
@@ -392,30 +398,34 @@ onMounted(() => {
         const bobberScreenPosition = bobber.position.clone().project(camera);
 
         // Convert to normalized device coordinates (NDC)
-        const ndcX = bobberScreenPosition.x;
         const ndcY = bobberScreenPosition.y;
+
+        if (ndcY < -5) return;
 
         // Check if the bobber is past the middle of the screen
         // NDC coordinates range from -1 to 1, where 0 is the center
         // We check if the bobber's y position is less than 0 (below the center)
-        return ndcY < -0.2;
+        isBobberPastMiddle.value = ndcY < -0.2;
       };
-
       // Separate function for subtle rotation
-      const applySubtleRotation = () => {
-        if (!bobber) return;
+      const applySubtleRotation = (() => {
+        let rotationTimer = 0;
+        const rotationSpeed = 0.016; // Adjust this value to change the rotation speed
 
-        bobber.rotation.x =
-          Math.sin(seaMaterial.uniforms.time.value * 3) * 0.03;
-        bobber.rotation.y = Math.sin(seaMaterial.uniforms.time.value) * 0.09;
-        bobber.rotation.z = Math.cos(seaMaterial.uniforms.time.value) * 0.07;
+        return () => {
+          if (!bobber) return;
 
-        // Add subtle horizontal movement
-        bobber.position.x =
-          Math.sin(seaMaterial.uniforms.time.value * 0.5 - 0.9) * 0.3;
-        bobber.position.z =
-          Math.cos(seaMaterial.uniforms.time.value * 0.48) * 0.2 - 0.2;
-      };
+          rotationTimer += rotationSpeed;
+
+          bobber.rotation.x = Math.sin(rotationTimer * 3) * 0.03;
+          bobber.rotation.y = Math.sin(rotationTimer) * 0.09;
+          bobber.rotation.z = Math.cos(rotationTimer) * 0.07;
+
+          // Add subtle horizontal movement
+          bobber.position.x += Math.sin(rotationTimer * 0.5 - 0.9) * 0.003;
+          bobber.position.z += Math.cos(rotationTimer * 0.48) * 0.002;
+        };
+      })();
 
       // Physics variables
       const gravity = -9.8;
@@ -469,12 +479,17 @@ onMounted(() => {
         requestAnimationFrame(animate);
 
         if (!isAnimating.value && isRocketLaunched.value == false) {
-          // Apply gravity and floating after 2 seconds
-          if (seaMaterial.uniforms.time.value > 1) {
-            applyGravity();
+          if (!isDragging.value) {
+            // Apply gravity and floating only when not dragging
+            if (seaMaterial.uniforms.time.value > 1) {
+              applyGravity();
+            }
           }
         }
-        applySubtleRotation();
+
+        if (!isDragging.value) {
+          applySubtleRotation();
+        }
 
         // Update water shader time
         seaMaterial.uniforms.time.value += 0.01;
@@ -484,7 +499,10 @@ onMounted(() => {
           starMaterial.uniforms.time.value += 0.016; // Assuming 60 FPS
         }
 
-        isBobberPastMiddle.value = isBobberPastMiddleOfCanvas();
+        if (isBobberPastMiddle.value == false) {
+          console.log("isBobberPastMiddle.value", isBobberPastMiddle.value);
+          isBobberPastMiddleOfCanvas();
+        }
 
         if (textElement.value) {
           textElement.value.style.opacity =
@@ -541,6 +559,14 @@ onMounted(() => {
       // Expose animateSeaDown to the component's scope
       window.animateSeaDown = animateSeaDown;
 
+      // Create a plane for dragging
+      dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+      // Add event listeners for mouse events only
+      renderer.domElement.addEventListener("mousedown", onDragStart);
+      window.addEventListener("mousemove", onDragMove);
+      window.addEventListener("mouseup", onDragEnd);
+
       animate();
     },
     undefined,
@@ -584,8 +610,71 @@ onMounted(() => {
     if (starField) {
       starField.geometry.dispose();
     }
+
+    // Remove event listeners
+    if (renderer) {
+      renderer.domElement.removeEventListener("mousedown", onDragStart);
+    }
+    window.removeEventListener("mousemove", onDragMove);
+    window.removeEventListener("mouseup", onDragEnd);
   });
 });
+
+function onDragStart(event) {
+  if (!bobber) return;
+
+  const mousePosition = getMousePosition(event);
+
+  // Project the bobber's position to screen coordinates
+  const bobberScreenPosition = bobber.position.clone().project(camera);
+
+  // Check if the mouse is close enough to the bobber to start dragging
+  if (
+    mousePosition.distanceTo(
+      new THREE.Vector2(bobberScreenPosition.x, bobberScreenPosition.y)
+    ) < 2
+  ) {
+    isDragging.value = true;
+    dragStartPosition.value.copy(mousePosition);
+    bobberStartPosition.value.copy(bobber.position);
+  }
+}
+
+function onDragMove(event) {
+  if (!isDragging.value || !bobber) return;
+
+  const mousePosition = getMousePosition(event);
+  const dragDelta = mousePosition.sub(dragStartPosition.value);
+
+  // Calculate the new position based on the drag delta
+  const newPosition = bobberStartPosition.value.clone();
+  newPosition.x += dragDelta.x * 2.5;
+  newPosition.y += dragDelta.y * 2;
+
+  // // Limit the bobber's movement within a certain range
+  // const maxDistance = 10;
+  // const xzPosition = new THREE.Vector2(newPosition.x, newPosition.z);
+  // if (xzPosition.length() > maxDistance) {
+  //   xzPosition.normalize().multiplyScalar(maxDistance);
+  //   newPosition.x = xzPosition.x;
+  //   newPosition.z = xzPosition.y;
+  // }
+
+  bobber.position.copy(newPosition);
+}
+
+function onDragEnd() {
+  isDragging.value = false;
+}
+
+function getMousePosition(event) {
+  if (!renderer) return new THREE.Vector2();
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  return new THREE.Vector2(x, y);
+}
 
 function startRocketLaunch() {
   isRocketLaunched.value = true;
@@ -655,7 +744,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   z-index: 1;
-  pointer-events: none;
+
   overflow: hidden;
 }
 
