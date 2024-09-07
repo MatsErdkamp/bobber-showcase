@@ -38,7 +38,7 @@
         </div>
 
         <div class="text-section">
-          <h2>More explanation</h2>
+          <h2>Gallery</h2>
           <img src="./assets/cee-sea.png" alt="cee-sea" />
           <!-- <img src="./assets/timer-functions.png" alt="timer-functions" /> -->
         </div>
