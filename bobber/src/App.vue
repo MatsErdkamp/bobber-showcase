@@ -618,7 +618,7 @@ function startRocketLaunch() {
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100lvh;
   z-index: 1;
   pointer-events: none;
   background: re;
@@ -665,7 +665,7 @@ function startRocketLaunch() {
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 180px;
+  height: 160px;
   background: linear-gradient(
     to top,
     hsl(193, 58%, 9%) 40%,
@@ -681,7 +681,7 @@ function startRocketLaunch() {
   margin-top: 12vh;
   margin-bottom: 10vh;
   width: 100vw;
-  min-height: 100vh;
+  min-height: 100lvh;
   position: relative;
   z-index: 0;
 }
