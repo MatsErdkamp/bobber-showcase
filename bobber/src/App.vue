@@ -126,7 +126,7 @@ onMounted(() => {
     (gltf) => {
       bobber = gltf.scene; // Assign to the global bobber variable
       bobber.position.y = 4;
-      bobber.scale.set(20, 20, 20);
+      bobber.scale.set(18, 18, 18);
 
       // Load environment map
       const cubeTextureLoader = new CubeTextureLoader();
@@ -550,17 +550,17 @@ onMounted(() => {
   const onWindowResize = () => {
     // Check if it's a real resize or just the mobile viewport changing
 
-    camera.aspect = window.innerWidth / initialInnerHeight;
+    camera.aspect = window.innerWidth / screen.height;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, initialInnerHeight);
+    renderer.setSize(window.innerWidth, screen.height);
 
-    // Update star material uniforms
-    if (starMaterial) {
-      const maxDimension = Math.max(window.innerWidth, window.innerHeight);
-      starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
-      starMaterial.uniforms.aspect.value =
-        window.innerWidth / window.innerHeight;
-    }
+    // // Update star material uniforms
+    // if (starMaterial) {
+    //   const maxDimension = Math.max(window.innerWidth, window.innerHeight);
+    //   starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
+    //   starMaterial.uniforms.aspect.value =
+    //     window.innerWidth / window.innerHeight;
+    // }
   };
 
   window.addEventListener("resize", onWindowResize);
