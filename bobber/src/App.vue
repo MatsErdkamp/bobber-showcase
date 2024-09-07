@@ -550,11 +550,11 @@ onMounted(() => {
   const onWindowResize = () => {
     // Check if it's a real resize or just the mobile viewport changing
 
-    camera.aspect = window.innerWidth / screen.height;
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, screen.height);
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // // Update star material uniforms
+    // Update star material uniforms
     // if (starMaterial) {
     //   const maxDimension = Math.max(window.innerWidth, window.innerHeight);
     //   starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
