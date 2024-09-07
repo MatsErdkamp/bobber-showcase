@@ -117,6 +117,8 @@ onMounted(() => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0x000000, 0); // Set clear color to black but fully transparent
   container.appendChild(renderer.domElement); // Append canvas to the container
+  renderer.domElement.style.position = "fixed";
+  renderer.domElement.style.bottom = "0";
 
   // Load the bobber.glb model
   const loader = new GLTFLoader();
