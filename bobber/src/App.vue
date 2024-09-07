@@ -92,16 +92,17 @@ const isAnimating = ref(false);
 const isRocketLaunched = ref(false);
 const showWaitlistForm = ref(false);
 let seaMaterial = null;
-let bobber = null; // Declare bobber in a wider scope
+let bobber = null;
 let scene;
 let starField;
 let starMaterial;
 const isDragging = ref(false);
 const dragStartPosition = ref(new THREE.Vector2());
 const bobberStartPosition = ref(new THREE.Vector3());
-let renderer; // Add this line to store the renderer reference
-let camera; // Add this line to store the camera reference
+let renderer;
+let camera;
 let dragPlane;
+let raycaster;
 
 onMounted(() => {
   const container = sceneContainer.value;
@@ -500,7 +501,6 @@ onMounted(() => {
         }
 
         if (isBobberPastMiddle.value == false) {
-          console.log("isBobberPastMiddle.value", isBobberPastMiddle.value);
           isBobberPastMiddleOfCanvas();
         }
 
@@ -562,10 +562,13 @@ onMounted(() => {
       // Create a plane for dragging
       dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-      // Add event listeners for mouse events only
-      renderer.domElement.addEventListener("mousedown", onDragStart);
-      window.addEventListener("mousemove", onDragMove);
-      window.addEventListener("mouseup", onDragEnd);
+      raycaster = new THREE.Raycaster();
+
+      // Set up event listeners on the sceneContainer instead of the renderer.domElement
+      window.addEventListener("pointerdown", onInteractionStart);
+      window.addEventListener("pointermove", onInteractionMove);
+      window.addEventListener("pointerup", onInteractionEnd);
+      window.addEventListener("pointercancel", onInteractionEnd);
 
       animate();
     },
@@ -612,62 +615,50 @@ onMounted(() => {
     }
 
     // Remove event listeners
-    if (renderer) {
-      renderer.domElement.removeEventListener("mousedown", onDragStart);
+    if (sceneContainer.value) {
+      window.removeEventListener("pointerdown", onInteractionStart);
     }
-    window.removeEventListener("mousemove", onDragMove);
-    window.removeEventListener("mouseup", onDragEnd);
+    window.removeEventListener("pointermove", onInteractionMove);
+    window.removeEventListener("pointerup", onInteractionEnd);
+    window.removeEventListener("pointercancel", onInteractionEnd);
   });
 });
 
-function onDragStart(event) {
-  if (!bobber) return;
+function onInteractionStart(event) {
+  if (!bobber || !renderer || !camera) return;
 
-  const mousePosition = getMousePosition(event);
+  const interactionPosition = getInteractionPosition(event);
+  raycaster.setFromCamera(interactionPosition, camera);
 
-  // Project the bobber's position to screen coordinates
-  const bobberScreenPosition = bobber.position.clone().project(camera);
+  const intersects = raycaster.intersectObject(bobber, true);
 
-  // Check if the mouse is close enough to the bobber to start dragging
-  if (
-    mousePosition.distanceTo(
-      new THREE.Vector2(bobberScreenPosition.x, bobberScreenPosition.y)
-    ) < 2
-  ) {
+  if (intersects.length > 0) {
     isDragging.value = true;
-    dragStartPosition.value.copy(mousePosition);
+    dragStartPosition.value.copy(interactionPosition);
     bobberStartPosition.value.copy(bobber.position);
+    event.preventDefault();
   }
 }
 
-function onDragMove(event) {
+function onInteractionMove(event) {
   if (!isDragging.value || !bobber) return;
 
-  const mousePosition = getMousePosition(event);
-  const dragDelta = mousePosition.sub(dragStartPosition.value);
+  const interactionPosition = getInteractionPosition(event);
+  const dragDelta = interactionPosition.sub(dragStartPosition.value);
 
-  // Calculate the new position based on the drag delta
   const newPosition = bobberStartPosition.value.clone();
   newPosition.x += dragDelta.x * 2.5;
   newPosition.y += dragDelta.y * 2;
 
-  // // Limit the bobber's movement within a certain range
-  // const maxDistance = 10;
-  // const xzPosition = new THREE.Vector2(newPosition.x, newPosition.z);
-  // if (xzPosition.length() > maxDistance) {
-  //   xzPosition.normalize().multiplyScalar(maxDistance);
-  //   newPosition.x = xzPosition.x;
-  //   newPosition.z = xzPosition.y;
-  // }
-
   bobber.position.copy(newPosition);
+  event.preventDefault();
 }
 
-function onDragEnd() {
+function onInteractionEnd() {
   isDragging.value = false;
 }
 
-function getMousePosition(event) {
+function getInteractionPosition(event) {
   if (!renderer) return new THREE.Vector2();
 
   const rect = renderer.domElement.getBoundingClientRect();
@@ -716,19 +707,6 @@ function startRocketLaunch() {
     showWaitlistForm.value = true;
   }, 2000); // Delay of 2 seconds before showing the form
 }
-
-function updateCanvasSize() {
-  if (sceneContainer.value) {
-    sceneContainer.value.style.height = `${window.innerHeight}px`;
-  }
-}
-
-window.addEventListener("resize", updateCanvasSize);
-updateCanvasSize(); // Initial call to set the correct size
-
-onUnmounted(() => {
-  window.removeEventListener("resize", updateCanvasSize);
-});
 </script>
 
 <style scoped>
@@ -744,8 +722,8 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   z-index: 1;
-
   overflow: hidden;
+  pointer-events: none;
 }
 
 .text-overlay {
