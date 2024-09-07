@@ -130,15 +130,6 @@ const updateCanDrag = (event) => {
   }
 };
 
-const onMouseDown = () => {
-  isMouseDown.value = true;
-};
-
-const onMouseUp = () => {
-  isMouseDown.value = false;
-  canDrag.value = false;
-};
-
 onMounted(() => {
   const container = sceneContainer.value;
 
@@ -224,17 +215,11 @@ onMounted(() => {
       // Function to check if bobber is in the middle of the canvas
       const isBobberPastMiddleOfCanvas = () => {
         if (!bobber || isAnimating.value) return false;
-        // Get the bobber's position in screen coordinates
         const bobberScreenPosition = bobber.position.clone().project(camera);
-
-        // Convert to normalized device coordinates (NDC)
         const ndcY = bobberScreenPosition.y;
 
         if (ndcY < -5) return;
 
-        // Check if the bobber is past the middle of the screen
-        // NDC coordinates range from -1 to 1, where 0 is the center
-        // We check if the bobber's y position is less than 0 (below the center)
         isBobberPastMiddle.value = ndcY < -0.2;
       };
       // Separate function for subtle rotation
@@ -250,8 +235,6 @@ onMounted(() => {
           bobber.rotation.x = Math.sin(rotationTimer * 3) * 0.03;
           bobber.rotation.y = Math.sin(rotationTimer) * 0.09;
           bobber.rotation.z = Math.cos(rotationTimer) * 0.07;
-
-          // Add subtle horizontal movement
           bobber.position.x += Math.sin(rotationTimer * 0.5 - 0.9) * 0.003;
           bobber.position.z += Math.cos(rotationTimer * 0.48) * 0.002;
         };
@@ -398,9 +381,7 @@ onMounted(() => {
       window.addEventListener("pointermove", onInteractionMove);
       window.addEventListener("pointerup", onInteractionEnd);
       window.addEventListener("pointercancel", onInteractionEnd);
-
       window.addEventListener("mousedown", onMouseDown);
-      window.addEventListener("mouseup", onMouseUp);
 
       animate();
     },
@@ -488,8 +469,14 @@ function onInteractionMove(event) {
   event.preventDefault();
 }
 
+const onMouseDown = () => {
+  isMouseDown.value = true;
+};
+
 function onInteractionEnd() {
   isDragging.value = false;
+  isMouseDown.value = false;
+  canDrag.value = false;
 }
 
 function getInteractionPosition(event) {
