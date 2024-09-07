@@ -620,6 +620,19 @@ function startRocketLaunch() {
     showWaitlistForm.value = true;
   }, 2000); // Delay of 2 seconds before showing the form
 }
+
+function updateCanvasSize() {
+  if (sceneContainer.value) {
+    sceneContainer.value.style.height = `${window.innerHeight}px`;
+  }
+}
+
+window.addEventListener("resize", updateCanvasSize);
+updateCanvasSize(); // Initial call to set the correct size
+
+onUnmounted(() => {
+  window.removeEventListener("resize", updateCanvasSize);
+});
 </script>
 
 <style scoped>
@@ -630,13 +643,13 @@ function startRocketLaunch() {
 
 .canvas-container {
   position: fixed;
-  top: 0;
+  bottom: 0;
   left: 0;
-  width: 100vw;
-  height: 100lvh;
+  width: 100%;
+  height: 100%;
   z-index: 1;
   pointer-events: none;
-  background: re;
+  overflow: hidden;
 }
 
 .text-overlay {
