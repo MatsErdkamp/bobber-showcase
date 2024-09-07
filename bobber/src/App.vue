@@ -699,7 +699,7 @@ function startRocketLaunch() {
 
 .text-section {
   margin-bottom: 40vh;
-  width: min(400px, 50vw);
+  width: min(400px, 90vw);
   margin-left: auto;
   margin-right: auto;
   background: #f5f4ee;
@@ -709,7 +709,7 @@ function startRocketLaunch() {
 .text-section img {
   width: 100%;
   height: auto;
-  max-width: min(300px, 50vw);
+  max-width: min(300px, 90vw);
   display: block;
   margin-left: auto;
   margin-right: auto;
@@ -730,7 +730,7 @@ function startRocketLaunch() {
   color: #fff;
   border: none;
   padding: 12px 16px;
-  width: min(300px, 50vw);
+  width: min(300px, 90vw);
   border-radius: 36px;
   cursor: pointer;
   margin-top: 24px;

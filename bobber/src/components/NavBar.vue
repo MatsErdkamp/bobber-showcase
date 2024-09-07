@@ -36,7 +36,7 @@ const menuItems = ref([
   position: fixed;
   top: 0;
 
-  width: 50vw;
+  width: 90vw;
   right: 0;
   z-index: 1000;
   color: #050505;

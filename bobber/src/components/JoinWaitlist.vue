@@ -34,7 +34,7 @@ function submitForm() {
   left: 50%;
   transform: translateX(-50%);
   height: 40vh;
-  width: min(400px, 50vw);
+  width: min(400px, 90vw);
   z-index: 100;
 }
 
