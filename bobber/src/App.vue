@@ -405,15 +405,16 @@ onMounted(() => {
       const applySubtleRotation = () => {
         if (!bobber) return;
 
-        bobber.rotation.x = Math.sin(seaMaterial.uniforms.time.value) * 0.051;
-        bobber.rotation.y = Math.sin(seaMaterial.uniforms.time.value) * 0.044;
-        bobber.rotation.z = Math.cos(seaMaterial.uniforms.time.value) * 0.046;
+        bobber.rotation.x =
+          Math.sin(seaMaterial.uniforms.time.value * 3) * 0.03;
+        bobber.rotation.y = Math.sin(seaMaterial.uniforms.time.value) * 0.09;
+        bobber.rotation.z = Math.cos(seaMaterial.uniforms.time.value) * 0.07;
 
         // Add subtle horizontal movement
-        bobber.position.x +=
-          Math.sin(seaMaterial.uniforms.time.value * 0.5) * 0.0009 - 0.00045;
-        bobber.position.z +=
-          Math.cos(seaMaterial.uniforms.time.value * 0.48) * 0.001;
+        bobber.position.x =
+          Math.sin(seaMaterial.uniforms.time.value * 0.5 - 0.9) * 0.3;
+        bobber.position.z =
+          Math.cos(seaMaterial.uniforms.time.value * 0.48) * 0.2 - 0.2;
       };
 
       // Physics variables
