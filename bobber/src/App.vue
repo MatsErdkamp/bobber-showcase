@@ -546,34 +546,20 @@ onMounted(() => {
     }
   );
 
-  // Store the initial inner and outer heights
-  let initialInnerHeight = window.innerHeight;
-  let initialOuterHeight = window.outerHeight;
-
   // Update canvas size on window resize
   const onWindowResize = () => {
     // Check if it's a real resize or just the mobile viewport changing
-    const isRealResize =
-      Math.abs(window.innerHeight - initialInnerHeight) > 100 ||
-      Math.abs(window.outerHeight - initialOuterHeight) > 100 ||
-      window.innerWidth !== renderer.domElement.width;
 
-    if (isRealResize) {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / initialInnerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, initialInnerHeight);
 
-      // Update star material uniforms
-      if (starMaterial) {
-        const maxDimension = Math.max(window.innerWidth, window.innerHeight);
-        starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
-        starMaterial.uniforms.aspect.value =
-          window.innerWidth / window.innerHeight;
-      }
-
-      // Update the initial heights
-      initialInnerHeight = window.innerHeight;
-      initialOuterHeight = window.outerHeight;
+    // Update star material uniforms
+    if (starMaterial) {
+      const maxDimension = Math.max(window.innerWidth, window.innerHeight);
+      starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
+      starMaterial.uniforms.aspect.value =
+        window.innerWidth / window.innerHeight;
     }
   };
 
