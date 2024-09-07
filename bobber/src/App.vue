@@ -29,12 +29,12 @@
             aliquam nunc nunc vitae. Duis aute irure dolor in reprehenderit in
             voluptate velit esse cillum dolore eu fugiat nulla pariatur.
           </p>
-          <img
+          <!-- <img
             src="./assets/cee_logo_star.svg"
             alt="CEE.HEALTH"
             class="logo-star"
             width="200"
-          />
+          /> -->
         </div>
 
         <div class="text-section">
@@ -317,6 +317,7 @@ onMounted(() => {
           resolution: {
             value: new THREE.Vector2(window.innerWidth, window.innerHeight),
           },
+          aspect: { value: window.innerWidth / window.innerHeight }, // Add aspect ratio uniform
         },
         vertexShader: `
           varying vec2 vUv;
@@ -328,6 +329,7 @@ onMounted(() => {
         fragmentShader: `
           uniform float time;
           uniform vec2 resolution;
+          uniform float aspect; // Add aspect ratio uniform
           varying vec2 vUv;
 
           float hash(vec2 p) {
@@ -338,7 +340,8 @@ onMounted(() => {
 
           void main() {
             vec2 uv = vUv;
-            vec4 color = vec4(0.0, 0.0, 0.0, 0.0); // Initialize with transparent black
+            uv.x *= aspect; // Adjust x coordinate based on aspect ratio
+            vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
             
             float gridSize = 4.0;
             vec2 gridUv = fract(uv * resolution / gridSize) - 0.5;
@@ -360,9 +363,8 @@ onMounted(() => {
             float twinkle = sin(time * (hash(id + 0.4) * 2.0 + 1.0) + hash(id + 0.5) * 6.28) * 0.5 + 0.5;
             brightness *= mix(0.5, 1.0, twinkle);
             
-            // Set star color with alpha
             color.rgb = vec3(1.0, 0.9, 0.8) * star * brightness;
-            color.a = star * brightness; // Set alpha based on star intensity
+            color.a = star * brightness;
 
             gl_FragColor = color;
           }
@@ -546,6 +548,16 @@ onMounted(() => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Update star material uniforms
+    if (starMaterial) {
+      starMaterial.uniforms.resolution.value.set(
+        window.innerWidth,
+        window.innerHeight
+      );
+      starMaterial.uniforms.aspect.value =
+        window.innerWidth / window.innerHeight;
+    }
   };
 
   window.addEventListener("resize", onWindowResize);

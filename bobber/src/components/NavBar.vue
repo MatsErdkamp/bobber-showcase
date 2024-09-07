@@ -30,17 +30,16 @@ const menuItems = ref([
 <style scoped>
 .navbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-around;
   align-items: center;
-  padding: 1rem 25vw 80px;
+  padding: 1rem 0 80px;
   position: fixed;
   top: 0;
-
-  width: 90vw;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1400px, 100vw);
   z-index: 1000;
   color: #050505;
-  /* background: linear-gradient(to bottom, #f5f4ee 50%, #f5f4ee00); */
 }
 
 .navbar-brand {
