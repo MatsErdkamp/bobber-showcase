@@ -546,13 +546,15 @@ onMounted(() => {
     }
   );
 
+  let originalHeight = window.innerHeight;
+
   // Update canvas size on window resize
   const onWindowResize = () => {
     // Check if it's a real resize or just the mobile viewport changing
 
-    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = window.innerWidth / originalHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth, originalHeight);
 
     // Update star material uniforms
     // if (starMaterial) {
