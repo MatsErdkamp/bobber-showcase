@@ -411,7 +411,7 @@ onMounted(() => {
 
         // Add subtle horizontal movement
         bobber.position.x +=
-          Math.sin(seaMaterial.uniforms.time.value * 0.5) * 0.0009;
+          Math.sin(seaMaterial.uniforms.time.value * 0.5) * 0.0009 - 0.00045;
         bobber.position.z +=
           Math.cos(seaMaterial.uniforms.time.value * 0.48) * 0.001;
       };
