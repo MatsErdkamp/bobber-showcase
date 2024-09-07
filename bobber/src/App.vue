@@ -320,7 +320,7 @@ onMounted(() => {
               Math.max(window.innerWidth, window.innerHeight)
             ),
           },
-          aspect: { value: 1 }, // Add aspect ratio uniform
+          aspect: { value: window.innerWidth / window.innerHeight }, // Add aspect ratio uniform
         },
         vertexShader: `
           varying vec2 vUv;
@@ -546,28 +546,44 @@ onMounted(() => {
     }
   );
 
+  // Store the initial inner and outer heights
+  let initialInnerHeight = window.innerHeight;
+  let initialOuterHeight = window.outerHeight;
+
   // Update canvas size on window resize
   const onWindowResize = () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    // Check if it's a real resize or just the mobile viewport changing
+    const isRealResize =
+      Math.abs(window.innerHeight - initialInnerHeight) > 50 ||
+      Math.abs(window.outerHeight - initialOuterHeight) > 50 ||
+      window.innerWidth !== renderer.domElement.width;
 
-    // Update star material uniforms
-    if (starMaterial) {
-      starMaterial.uniforms.resolution.value.set(
-        window.innerWidth,
-        window.innerHeight
-      );
-      starMaterial.uniforms.aspect.value =
-        window.innerWidth / window.innerHeight;
+    if (isRealResize) {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      // Update star material uniforms
+      if (starMaterial) {
+        const maxDimension = Math.max(window.innerWidth, window.innerHeight);
+        starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
+        starMaterial.uniforms.aspect.value =
+          window.innerWidth / window.innerHeight;
+      }
+
+      // Update the initial heights
+      initialInnerHeight = window.innerHeight;
+      initialOuterHeight = window.outerHeight;
     }
   };
 
   window.addEventListener("resize", onWindowResize);
+  window.addEventListener("orientationchange", onWindowResize);
 
   // Clean up when the component is unmounted
   onUnmounted(() => {
     window.removeEventListener("resize", onWindowResize);
+    window.removeEventListener("orientationchange", onWindowResize);
 
     renderer.dispose();
 
