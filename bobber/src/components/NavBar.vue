@@ -1,17 +1,17 @@
 <template>
   <nav class="navbar">
     <div class="navbar-brand">
-      <router-link to="/" class="navbar-item">{{ brandName }}</router-link>
+      <a to="/" class="navbar-item">{{ brandName }}</a>
     </div>
     <div class="navbar-menu">
-      <router-link
+      <a
         v-for="item in menuItems"
         :key="item.path"
         :to="item.path"
         class="navbar-item"
       >
         {{ item.name }}
-      </router-link>
+      </a>
     </div>
   </nav>
 </template>
@@ -40,6 +40,10 @@ const menuItems = ref([
   width: min(1400px, 100vw);
   z-index: 1000;
   color: #050505;
+}
+
+a {
+  all: unset;
 }
 
 .navbar-brand {

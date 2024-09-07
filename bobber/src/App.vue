@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container">
+  <div class="page-container" @mousemove="updateCanDrag">
     <Transition name="fade">
       <NavBar v-if="isBobberPastMiddle" />
     </Transition>
@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, onUnmounted, watch } from "vue";
+import { onMounted, ref, onUnmounted, watch, computed } from "vue";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import bobberModel from "./assets/Models/bobber-real.glb";
@@ -84,6 +84,8 @@ import nyTexture from "./assets/hdri/sea_three/ny.png";
 import pzTexture from "./assets/hdri/sea_three/pz.png";
 import nzTexture from "./assets/hdri/sea_three/nz.png";
 import JoinWaitlist from "./components/JoinWaitlist.vue";
+import { createSeaMaterial } from "./components/js/seaMaterial";
+import { createStarMaterial } from "./components/js/starMaterial";
 
 const sceneContainer = ref(null);
 const textElement = ref(null);
@@ -91,6 +93,7 @@ const isBobberPastMiddle = ref(false);
 const isAnimating = ref(false);
 const isRocketLaunched = ref(false);
 const showWaitlistForm = ref(false);
+const canDrag = ref(false);
 let seaMaterial = null;
 let bobber = null;
 let scene;
@@ -103,6 +106,38 @@ let renderer;
 let camera;
 let dragPlane;
 let raycaster;
+const isMouseDown = ref(false);
+
+const cursorStyle = computed(() => {
+  if (!canDrag.value) return "default";
+  return isMouseDown.value ? "grabbing" : "grab";
+});
+
+const updateCanDrag = (event) => {
+  if (bobber && camera && renderer) {
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    // Get the current mouse position
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(bobber, true);
+
+    canDrag.value = intersects.length > 0;
+  }
+};
+
+const onMouseDown = () => {
+  isMouseDown.value = true;
+};
+
+const onMouseUp = () => {
+  isMouseDown.value = false;
+  canDrag.value = false;
+};
 
 onMounted(() => {
   const container = sceneContainer.value;
@@ -166,148 +201,7 @@ onMounted(() => {
       // bobberMaterials = bobber.children[0].children[1].material;
 
       // Create sea material here, after environmentMap is loaded
-      seaMaterial = new ShaderMaterial({
-        uniforms: {
-          time: { value: 0 },
-          color1: { value: new THREE.Color(0x6799aa) },
-          color2: { value: new THREE.Color(0x4a7a8c) },
-          foamColor: { value: new THREE.Color(0xeeeeff) },
-          envMap: { value: environmentMap },
-          seaPosition: { value: new THREE.Vector3(0, 0, 0) },
-        },
-        vertexShader: `
-          uniform float time;
-          uniform vec3 seaPosition;
-          varying vec2 vUv;
-          varying float vElevation;
-          varying vec3 vWorldPosition;
-          varying vec3 vNormal;
-
-          // Simplex 2D noise
-          vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
-
-          float snoise(vec2 v) {
-            const vec4 C = vec4(0.211324865405187, 0.366025403784439,
-                     -0.577350269189626, 0.024390243902439);
-            vec2 i  = floor(v + dot(v, C.yy) );
-            vec2 x0 = v -   i + dot(i, C.xx);
-            vec2 i1;
-            i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-            vec4 x12 = x0.xyxy + C.xxzz;
-            x12.xy -= i1;
-            i = mod(i, 289.0);
-            vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
-            + i.x + vec3(0.0, i1.x, 1.0 ));
-            vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
-              dot(x12.zw,x12.zw)), 0.0);
-            m = m*m ;
-            m = m*m ;
-            vec3 x = 2.0 * fract(p * C.www) - 1.0;
-            vec3 h = abs(x) - 0.5;
-            vec3 ox = floor(x + 0.5);
-            vec3 a0 = x - ox;
-            m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-            vec3 g;
-            g.x  = a0.x  * x0.x  + h.x  * x0.y;
-            g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-            return 40.0 * dot(m, g);
-          }
-
-          void main() {
-            vUv = uv;
-            vec3 pos = position + seaPosition;
-
-            float noiseScale = 0.2;
-            float noiseTime = time * 0.4;
-
-            float noise1 = snoise(vec2(vUv.x * 2.0 + noiseTime, vUv.y * 2.0 + noiseTime)) * noiseScale;
-            float noise2 = snoise(vec2(vUv.x * 4.0 - noiseTime, vUv.y * 4.0 - noiseTime)) * noiseScale * 0.5;
-            float noise3 = snoise(vec2(vUv.x * 8.0 + noiseTime * 1.5, vUv.y * 8.0 - noiseTime * 1.5)) * noiseScale * 0.25;
-            float noise4 = snoise(vec2(vUv.x * 16.0 + noiseTime * 2.0, vUv.y * 16.0 - noiseTime * 2.0)) * noiseScale * 0.1;
-
-            vElevation = noise1 + noise2 + noise3 + noise4;
-            pos.z += vElevation;
-
-            vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
-            vWorldPosition = worldPosition.xyz;
-            vNormal = normalize(mat3(modelMatrix) * normal);
-
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform vec3 color1;
-          uniform vec3 color2;
-          uniform vec3 foamColor;
-          uniform float time;
-          uniform samplerCube envMap;
-          // cameraPosition is already provided by Three.js, so we don't need to declare it
-          varying vec2 vUv;
-          varying float vElevation;
-          varying vec3 vWorldPosition;
-          varying vec3 vNormal;
-
-          // Simplex 2D noise function (same as in vertex shader)
-          vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
-
-          float snoise(vec2 v) {
-            const vec4 C = vec4(0.211324865405187, 0.366025403784439,
-                     -0.577350269189626, 0.024390243902439);
-            vec2 i  = floor(v + dot(v, C.yy) );
-            vec2 x0 = v -   i + dot(i, C.xx);
-            vec2 i1;
-            i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-            vec4 x12 = x0.xyxy + C.xxzz;
-            x12.xy -= i1;
-            i = mod(i, 289.0);
-            vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
-            + i.x + vec3(0.0, i1.x, 1.0 ));
-            vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
-              dot(x12.zw,x12.zw)), 0.0);
-            m = m*m ;
-            m = m*m ;
-            vec3 x = 2.0 * fract(p * C.www) - 1.0;
-            vec3 h = abs(x) - 0.5;
-            vec3 ox = floor(x + 0.5);
-            vec3 a0 = x - ox;
-            m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-            vec3 g;
-            g.x  = a0.x  * x0.x  + h.x  * x0.y;
-            g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-            return 40.0 * dot(m, g);
-          }
-
-          void main() {
-            float mixStrength = (sin(vUv.x * 10.0 + time) + sin(vUv.y * 10.0 + time)) * 0.5 + 0.5;
-            vec3 mixedColor = mix(color1, color2, mixStrength);
-
-            float foamEdge = smoothstep(0.04, 0.1, vElevation);
-            vec3 finalColor = mix(mixedColor, foamColor, foamEdge);
-
-            // Calculate reflection with displacement
-            vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
-            vec3 reflectionDirection = reflect(-viewDirection, vNormal);
-
-            // Add displacement to reflection direction
-            float displacementScale = 0.1;
-            float displacementX = snoise(vUv * 10.0 + time * 0.5) * displacementScale;
-            float displacementY = snoise((vUv + 0.5) * 10.0 + time * 0.5) * displacementScale;
-            reflectionDirection.x += displacementX;
-            reflectionDirection.y += displacementY;
-            reflectionDirection = normalize(reflectionDirection);
-
-            vec3 reflection = textureCube(envMap, reflectionDirection).rgb;
-
-            // Mix reflection with water color
-            float reflectionStrength = 0.4; // Adjust this value to control reflection intensity
-            finalColor = mix(finalColor, reflection, reflectionStrength);
-
-            float alpha = 0.8 + foamEdge * 0.2;
-            gl_FragColor = vec4(finalColor, alpha);
-          }
-        `,
-        transparent: true,
-      });
+      seaMaterial = createSeaMaterial(environmentMap);
       const seaGeometry = new THREE.PlaneGeometry(10, 10, 400, 400);
       const sea = new THREE.Mesh(seaGeometry, seaMaterial);
       sea.rotation.x = -Math.PI / 2; // Rotate to be horizontal
@@ -320,72 +214,7 @@ onMounted(() => {
       scene.add(directionalLight);
 
       // Create star shader material
-      starMaterial = new ShaderMaterial({
-        uniforms: {
-          time: { value: 0 },
-          resolution: {
-            value: new THREE.Vector2(
-              Math.max(window.innerWidth, window.innerHeight),
-              Math.max(window.innerWidth, window.innerHeight)
-            ),
-          },
-          aspect: { value: window.innerWidth / window.innerHeight }, // Add aspect ratio uniform
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform float time;
-          uniform vec2 resolution;
-          uniform float aspect; // Add aspect ratio uniform
-          varying vec2 vUv;
-
-          float hash(vec2 p) {
-            p = fract(p * vec2(123.34, 456.21));
-            p += dot(p, p + 45.32);
-            return fract(p.x * p.y);
-          }
-
-          void main() {
-            vec2 uv = vUv;
-            uv.x *= aspect; // Adjust x coordinate based on aspect ratio
-            vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-            
-            float gridSize = 4.0;
-            vec2 gridUv = fract(uv * resolution / gridSize) - 0.5;
-            vec2 id = floor(uv * resolution / gridSize);
-            
-            vec2 offset = vec2(
-              hash(id + 0.1) - 0.5,
-              hash(id + 0.2) - 0.5
-            ) * 0.7;
-            
-            gridUv += offset;
-            
-            float size = hash(id) * 0.002 + 0.03;
-            float brightness = pow(hash(id + 0.3), 5.0) * 0.8 + 0.4;
-            
-            float star = length(gridUv) - size;
-            star = 1.0 - step(0.0, star);
-            
-            float twinkle = sin(time * (hash(id + 0.4) * 2.0 + 1.0) + hash(id + 0.5) * 6.28) * 0.5 + 0.5;
-            brightness *= mix(0.5, 1.0, twinkle);
-            
-            color.rgb = vec3(1.0, 0.9, 0.8) * star * brightness;
-            color.a = star * brightness;
-
-            gl_FragColor = color;
-          }
-        `,
-        side: BackSide,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      });
+      starMaterial = createStarMaterial();
 
       // Create a large sphere for the star field
       const starGeometry = new SphereGeometry(50, 64, 64);
@@ -570,6 +399,9 @@ onMounted(() => {
       window.addEventListener("pointerup", onInteractionEnd);
       window.addEventListener("pointercancel", onInteractionEnd);
 
+      window.addEventListener("mousedown", onMouseDown);
+      window.addEventListener("mouseup", onMouseUp);
+
       animate();
     },
     undefined,
@@ -589,12 +421,12 @@ onMounted(() => {
     renderer.setSize(window.innerWidth, originalHeight);
 
     // Update star material uniforms
-    // if (starMaterial) {
-    //   const maxDimension = Math.max(window.innerWidth, window.innerHeight);
-    //   starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
-    //   starMaterial.uniforms.aspect.value =
-    //     window.innerWidth / window.innerHeight;
-    // }
+    if (starMaterial) {
+      const maxDimension = Math.max(window.innerWidth, window.innerHeight);
+      starMaterial.uniforms.resolution.value.set(maxDimension, maxDimension);
+      starMaterial.uniforms.aspect.value =
+        window.innerWidth / window.innerHeight;
+    }
   };
 
   window.addEventListener("resize", onWindowResize);
@@ -621,6 +453,9 @@ onMounted(() => {
     window.removeEventListener("pointermove", onInteractionMove);
     window.removeEventListener("pointerup", onInteractionEnd);
     window.removeEventListener("pointercancel", onInteractionEnd);
+
+    window.removeEventListener("mousedown", onMouseDown);
+    window.removeEventListener("mouseup", onMouseUp);
   });
 });
 
@@ -636,7 +471,6 @@ function onInteractionStart(event) {
     isDragging.value = true;
     dragStartPosition.value.copy(interactionPosition);
     bobberStartPosition.value.copy(bobber.position);
-    event.preventDefault();
   }
 }
 
@@ -713,6 +547,10 @@ function startRocketLaunch() {
 .logo-star {
   margin-left: 60px !important;
   margin-bottom: -155px;
+}
+
+.page-container {
+  cursor: v-bind(cursorStyle);
 }
 
 .canvas-container {
@@ -806,6 +644,7 @@ function startRocketLaunch() {
   margin-right: auto;
   background: #f5f4ee;
   padding: 24px 0;
+  user-select: none;
 }
 
 .text-section img {
