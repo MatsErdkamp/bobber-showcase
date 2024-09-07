@@ -554,8 +554,8 @@ onMounted(() => {
   const onWindowResize = () => {
     // Check if it's a real resize or just the mobile viewport changing
     const isRealResize =
-      Math.abs(window.innerHeight - initialInnerHeight) > 50 ||
-      Math.abs(window.outerHeight - initialOuterHeight) > 50 ||
+      Math.abs(window.innerHeight - initialInnerHeight) > 100 ||
+      Math.abs(window.outerHeight - initialOuterHeight) > 100 ||
       window.innerWidth !== renderer.domElement.width;
 
     if (isRealResize) {
