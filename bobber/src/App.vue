@@ -315,9 +315,12 @@ onMounted(() => {
         uniforms: {
           time: { value: 0 },
           resolution: {
-            value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+            value: new THREE.Vector2(
+              Math.max(window.innerWidth, window.innerHeight),
+              Math.max(window.innerWidth, window.innerHeight)
+            ),
           },
-          aspect: { value: window.innerWidth / window.innerHeight }, // Add aspect ratio uniform
+          aspect: { value: 1 }, // Add aspect ratio uniform
         },
         vertexShader: `
           varying vec2 vUv;
@@ -376,7 +379,7 @@ onMounted(() => {
       });
 
       // Create a large sphere for the star field
-      const starGeometry = new SphereGeometry(500, 64, 64);
+      const starGeometry = new SphereGeometry(50, 64, 64);
       starField = new Mesh(starGeometry, starMaterial);
       // Don't add to scene yet, we'll do that when the rocket launches
 
